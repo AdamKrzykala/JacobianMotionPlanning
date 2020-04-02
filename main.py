@@ -6,6 +6,8 @@ from fourierControl import *
 from systemModel import *
 from lagrangianjacobian import *
 
+#Pseudoinverse version
+
 model = systemModel()
 inverse = LagrangianJacobian(model)
 
