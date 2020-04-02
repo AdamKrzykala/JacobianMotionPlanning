@@ -11,7 +11,7 @@ class LagrangianJacobian:
     def __init__(self,model):
         self.baseModel = model
         self.baseModel.backToInitialConfiguration()
-        self.Gamma0 = 0.1
+        self.Gamma0 = 0.000002
 
     def UlambdaODE(self,q,t,U):
         return mtimes(self.baseModel.Bsolver(q),self.baseModel.Psolver(t))+mtimes(self.baseModel.Asolver(q,t),U)
@@ -32,13 +32,10 @@ class LagrangianJacobian:
                     casadi.reshape(self.UlambdaODE(q,t,U),ConfDim*controlVectorSize,1),
                     self.baseModel.EndogenousConfigurationODE(q,t))
         dae = {'t':t,'x':X,'ode':ode}
-        opts = {}
-        opts["t0"] = 0
-        opts["tf"] = 1
-        F = integrator("F", "cvodes", dae, opts)
+        F = integrator("F", "cvodes", dae, {"t0": 0, "tf": time, "abstol": 1e-19})
         sol = F(x0=vertcat(casadi.reshape(Vtinit,a,1),
                             DM.zeros(ConfDim*controlVectorSize,1),
-                            [0,0,0]))
+                            [0,0,pi/8]))
         VT = casadi.reshape(sol['xf'][0:a],controlVectorSize,controlVectorSize)
         UT = casadi.reshape(sol['xf'][a:a+ConfDim*controlVectorSize],ConfDim,controlVectorSize)
         qT = casadi.reshape(sol['xf'][a+ConfDim*controlVectorSize:a+ConfDim*controlVectorSize+3],3,1)
@@ -46,7 +43,7 @@ class LagrangianJacobian:
 
     def getGamma(self,dLam):
         gmm = 2*self.Gamma0
-        nrm = np.linalg.norm(np.array(dLam).astype(np.float64), ord=2)
+        nrm = np.linalg.norm(np.array(dLam), ord=2)
         return [min(sqrt(gmm/nrm),1)]
 
     def Q(self,q,t):
@@ -63,6 +60,7 @@ class LagrangianJacobian:
         Vt,Ut,q = self.Vlambda(timeHorizon)
         Ct = self.baseModel.Csolver(q)
         self.baseModel.actualizeConfiguration(q)
+        print("Determinant: ", det(Vt))
         V = inv(Vt)
         sol = mtimes(V,Ut.T)
         sol = mtimes(sol,Ct.T)
