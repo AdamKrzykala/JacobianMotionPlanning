@@ -1,6 +1,5 @@
 from casadi import *
 from numpy import *
-import time
 
 from fourierControl import *
 from systemModel import *
@@ -19,17 +18,16 @@ i = 0
 
 while numpy.linalg.norm(e) > 0.001:
     print(numpy.linalg.norm(e))
-    inverseJ = inverse.inverseLagrangianJacobian(time)
     print("--------------------------------------------------------------")
     print("Step: ",i+1)
     print("Control: ",model.getControl())
     print("Configuration:", model.getConfiguration())
     e = model.getOutput() - yd
     print("Error: ",e)
+    inverseJ = inverse.inverseLagrangianJacobian(time)
     inverseJe = mtimes(inverseJ,e)
     gamma = inverse.getGamma(inverseJe)
+    print("Gamma: ", gamma)
     change = gamma*inverseJe
-    print(gamma)
     model.fourierControl.actualizeControlVector(model.getControl()-change)
-    olde = e
     i = i+1

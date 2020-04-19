@@ -3,7 +3,7 @@ import math
 from casadi import *
 
 t = SX.sym("t")
-omega = 1
+omega = 2*math.pi/20
 
 class fourierControl:
     def __init__(self,init_coefficients,controlVectorSize):
