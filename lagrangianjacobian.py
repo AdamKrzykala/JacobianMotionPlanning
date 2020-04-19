@@ -32,43 +32,44 @@ class LagrangianJacobian:
                     casadi.reshape(self.UlambdaODE(q,t,U),ConfDim*controlVectorSize,1),
                     self.baseModel.EndogenousConfigurationODE(q,t))
         dae = {'t':t,'x':X,'ode':ode}
-        opts = {}
-        opts["t0"] = 0
-        opts["tf"] = 1
-        F = integrator("F", "cvodes", dae, opts)
+        F = integrator("F", "cvodes", dae, {"t0": 0, "tf": time})
         sol = F(x0=vertcat(casadi.reshape(Vtinit,a,1),
                             DM.zeros(ConfDim*controlVectorSize,1),
-                            [0,0,0]))
+                            [0,0,pi/8]))
         VT = casadi.reshape(sol['xf'][0:a],controlVectorSize,controlVectorSize)
         UT = casadi.reshape(sol['xf'][a:a+ConfDim*controlVectorSize],ConfDim,controlVectorSize)
-        qT = casadi.reshape(sol['xf'][a+ConfDim*controlVectorSize:a+ConfDim*controlVectorSize+3],3,1)
+        qT = casadi.reshape(sol['xf'][a+ConfDim*controlVectorSize:a+ConfDim*controlVectorSize+ConfDim],ConfDim,1)
         return VT,UT,qT
 
     def getGamma(self,dLam):
         gmm = 2*self.Gamma0
-        nrm = np.linalg.norm(np.array(dLam).astype(np.float64), ord=2)
-        return [min(sqrt(gmm/nrm),1)]
+        nrm = np.linalg.norm(np.array(dLam), ord=2)
+        return [min(sqrt(gmm/nrm)/100,1)]
 
     def Q(self,q,t):
         a = self.baseModel.Asolver(q,t)
         return mtimes(a.T,a)
+        #return(DM.zeros(3,3))
 
     def S(self,q,t):
         return mtimes(self.baseModel.Asolver(q,t).T,self.baseModel.Bsolver(q))
+        #return (DM.zeros(3,2))
 
     def R(self,q):
         return mtimes(self.baseModel.Bsolver(q).T,self.baseModel.Bsolver(q))
+        #return (DM.eye(2))
 
     def inverseLagrangianJacobian(self,timeHorizon):
         Vt,Ut,q = self.Vlambda(timeHorizon)
         Ct = self.baseModel.Csolver(q)
         self.baseModel.actualizeConfiguration(q)
-        V = inv(Vt)
-        sol = mtimes(V,Ut.T)
+        print("Determinant: ", det(Vt))
+        Vinv = inv(Vt)
+        sol = mtimes(Vinv,Ut.T)
         sol = mtimes(sol,Ct.T)
-        sol = mtimes(sol,Ct)
-        sol = mtimes(sol,Ut)
-        sol = mtimes(sol,V)
-        sol = mtimes(sol,Ut.T)
-        sol = mtimes(sol,Ct.T)
+        w = mtimes(Ct,Ut)
+        w = mtimes(w,Vinv)
+        w = mtimes(w,Ut.T)
+        w = mtimes(w,Ct.T)
+        sol = mtimes(sol,inv(w))
         return sol

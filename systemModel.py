@@ -16,18 +16,27 @@ class systemModel:
     def __init__(self):
         global ConfDim, ConfDim, OutputDim
         #-----------------------INPUT DATA---------------------------
-        self.initialConfiguration = np.array([0,0,0])
+        m1 = 4.5
+        m2 = 1.5
+        l1 = 0.619
+        l2 = 0.6
+        d1 = 0.313
+        d2 = 0.287
+        I = 0.208
+        J = m1*d1**2 + m2*d2**2
+        K = m2*d2**2
+        self.initialConfiguration = np.array([0,0,pi/8])
         self.qTab = self.initialConfiguration
-        self.initialControl = np.array([2,2,2,2,2,2])
+        self.initialControl = np.array([0.05,0,0,0,0,0])
         self.fourierControl = fourierControl(self.initialControl,ControlDim)
         self.Gs = vertcat(
-            horzcat(cos(q[2]),    0),
-            horzcat(sin(q[2]),    0),
-            horzcat(        0,    1))
+            horzcat(-(J+K+2*m2*l1*d2*cos(q[2]))/(I+J+K+2*m2*l1*d2*cos(q[2])),-(K+m2*l1*d2*cos(q[2]))/(I+J+K+2*m2*l1*d2*cos(q[2]))),
+            horzcat(1,   0),
+            horzcat(        0,   1))
         self.Ys = vertcat(
             q[0],
-            q[1],
-            q[2])
+            l1*cos(q[1])+l2*cos(q[1]+q[2]),
+            l1*sin(q[1])+l2*sin(q[1]+q[2]))
         self.p = Function('p',[t],[self.fourierControl.Pmatrix()])
         self.g = Function('g',[q],[self.Gs])
         self.y = Function('y',[q],[self.Ys])
