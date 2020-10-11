@@ -1,33 +1,29 @@
-from casadi import *
-from numpy import *
-
-from fourierControl import *
-from systemModel import *
 from lagrangianjacobian import *
 
-#Pseudoinverse version
+# Lagrangian inverse version
+from lagrangianjacobian import LagrangianJacobian
 
 model = systemModel()
-inverse = LagrangianJacobian(model)
+inverse: LagrangianJacobian = LagrangianJacobian(model)
 
-time = 20
-yd = np.array([0,0.8,0.5])
-e = model.getOutput() - yd
+yd: ndarray = desPos
+e = model.getOutput - yd
+i: int = 0
 
-i = 0
-
-while numpy.linalg.norm(e) > 0.001:
+while numpy.linalg.norm(e) > maxError:
     print(numpy.linalg.norm(e))
-    print("--------------------------------------------------------------")
-    print("Step: ",i+1)
-    print("Control: ",model.getControl())
-    print("Configuration:", model.getConfiguration())
-    e = model.getOutput() - yd
-    print("Error: ",e)
-    inverseJ = inverse.inverseLagrangianJacobian(time)
-    inverseJe = mtimes(inverseJ,e)
+    print('--------------------------------------------------------------')
+    print('Step: ', i + 1)
+    print('Control: ', model.getControl)
+    print('Control value at the beginning: ', model.getControlValue(0))
+    print('Control value at the end: ', model.getControlValue(Th))
+    print("Configuration:", model.getConfiguration)
+    e = model.getOutput - yd
+    print('Error: ', e)
+    inverseJ = inverse.inverseLagrangianJacobian(Th)
+    inverseJe = mtimes(inverseJ, vertcat(e, DM([[0], [0]])))
     gamma = inverse.getGamma(inverseJe)
-    print("Gamma: ", gamma)
-    change = gamma*inverseJe
-    model.fourierControl.actualizeControlVector(model.getControl()-change)
-    i = i+1
+    print('Gamma: ', gamma)
+    change = gamma * inverseJe
+    model.fourierControl.actualizeControlVector(model.getControl - change)
+    i = i + 1

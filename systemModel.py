@@ -1,86 +1,87 @@
-import sys
-import math
 from sympy import *
+
 from fourierControl import *
-from casadi import *
-from numpy import *
+from taskDef import *
 
-ConfDim = 3
-ControlDim = 2
-OutputDim = 3
-controlVectorSize = 6
-
-q = SX.sym("q",ConfDim)
 
 class systemModel:
-    def __init__(self):
-        global ConfDim, ConfDim, OutputDim
-        #-----------------------INPUT DATA---------------------------
-        m1 = 4.5
-        m2 = 1.5
-        l1 = 0.619
-        l2 = 0.6
-        d1 = 0.313
-        d2 = 0.287
-        I = 0.208
-        J = m1*d1**2 + m2*d2**2
-        K = m2*d2**2
-        self.initialConfiguration = np.array([0,0,pi/8])
-        self.qTab = self.initialConfiguration
-        self.initialControl = np.array([0.05,0,0,0,0,0])
-        self.fourierControl = fourierControl(self.initialControl,ControlDim)
-        self.Gs = vertcat(
-            horzcat(-(J+K+2*m2*l1*d2*cos(q[2]))/(I+J+K+2*m2*l1*d2*cos(q[2])),-(K+m2*l1*d2*cos(q[2]))/(I+J+K+2*m2*l1*d2*cos(q[2]))),
-            horzcat(1,   0),
-            horzcat(        0,   1))
-        self.Ys = vertcat(
-            q[0],
-            l1*cos(q[1])+l2*cos(q[1]+q[2]),
-            l1*sin(q[1])+l2*sin(q[1]+q[2]))
-        self.p = Function('p',[t],[self.fourierControl.Pmatrix()])
-        self.g = Function('g',[q],[self.Gs])
-        self.y = Function('y',[q],[self.Ys])
+    qTab: ndarray
 
+    def __init__(self):
+        """
+        @rtype: systemModel
+        """
+        global ConfDim, ConfDim, OutputDim
+        # -----------------------INPUT DATA---------------------------
+
+        self.initialConfiguration = InitConfiguration
+        self.qTab = self.initialConfiguration
+        self.initialControl = InitControl
+        self.fourierControl = fourierControl(self.initialControl, ControlDim)
+        self.Gs = generatorsMatrix
+        self.Fs = initialDrift
+        self.Ys = outputSys
+        self.p = Function('p', [t], [self.fourierControl.Pmatrix()])
+        self.g = Function('g', [q], [self.Gs])
+        self.f = Function('f', [q], [self.Fs])
+        self.y = Function('y', [q], [self.Ys])
+
+    @property
     def getConfiguration(self):
+        """
+        @rtype: object
+        """
         return self.qTab
 
+    def getControlValue(self, time: float):
+        """
+        @type time: float
+        @rtype: object
+        """
+        return self.fourierControl.evaluate(time)
+
+    @property
     def getOutput(self):
         return self.y(self.qTab)
 
+    @property
     def getControl(self):
         return self.fourierControl.getControlCoefficients()
 
     def conf(self):
         return self.qTab
 
-    def actualizeConfiguration(self,new_configuration):
+    def actualizeConfiguration(self, new_configuration):
         self.qTab = new_configuration
 
     def backToInitialConfiguration(self):
         self.qTab = self.initialConfiguration
 
-    def Gsolver(self,tempq):
+    def Gsolver(self, tempq):
         return self.g(tempq)
 
-    def Asolver(self,tempq,time):
-        temp = mtimes(self.Gs,self.fourierControl.evaluate(time))
-        func = jacobian(temp,q)
-        f = Function('f',[q],[func])
+    def Fsolver(self, tempq):
+        return self.f(tempq)
+
+    def Asolver(self, tempq, time):
+        temp = mtimes(self.Gs, self.fourierControl.evaluate(time))
+        func = jacobian(temp, q)
+        f = Function('f', [q], [func])
         return f(tempq)
 
-    def Bsolver(self,tempq):
+    def Bsolver(self, tempq):
         return self.g(tempq)
 
-    def Csolver(self,tempq):
-        func = jacobian(self.Ys,q)
-        f = Function('f',[q],[func])
+    def Csolver(self, tempq):
+        func = jacobian(self.Ys, q)
+        f = Function('f', [q], [func])
         return f(tempq)
 
-    def Ysolver(self,tempq):
+    def Ysolver(self, tempq):
         return self.y(tempq)
 
-    def Psolver(self,time):
+    def Psolver(self, time):
         return self.p(time)
 
-    def EndogenousConfigurationODE(self,q,t):
-        return mtimes(self.Gsolver(q),self.fourierControl.evaluate(t))
+    def EndogenousConfigurationODE(self, q, t):
+        return mtimes(self.Gsolver(q), self.fourierControl.evaluate(t)) + self.Fsolver(q)
